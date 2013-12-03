@@ -12,7 +12,7 @@ void setHisto(TH2F * histo){
   //histo->Draw("");
   histo->GetXaxis()->SetTitle("Lead E#gamma (GeV)");
   histo->GetYaxis()->SetTitle("Trail E#gamma (GeV)");
-  histo->SetTitle("Efficiency bit0");
+  histo->SetTitle("Efficiency for bit0");
 }
 
 void make_up(){
