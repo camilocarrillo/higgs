@@ -60,23 +60,24 @@ class GenHltAnalyzer : public edm::EDAnalyzer {
 
       static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
       TFile * theFileOut;
-      TH1F * ptLeadhisto;
-      TH1F * ptTrailhisto;
-      TH1F * massDiphotonhisto;
-      TH1F * massHiggshisto;
-      TH1F * numerator;
-      TH1F * denominator;
-      TH1F * higgsEtaHist;
-      TH1F * higgsPhiHist;
-      TH1F * higgsPHist;
-      TH1F * higgsPtHist;
+      TH1F * ptLeadhisto[2];
+      TH1F * ptTrailhisto[2];
+      TH1F * massDiphotonhisto[2];
+      TH1F * massHiggshisto[2];
+      TH1F * numerator[2];
+      TH1F * denominator[2];
+      TH1F * higgsEtaHist[2];
+      TH1F * higgsPhiHist[2];
+      TH1F * higgsPHist[2];
+      TH1F * higgsPtHist[2];
       TH2F * phi1phi2;
       TH2F * eta1eta2;
       TH2F * pt1pt2;
-      TEfficiency * Effbit[Nhltpaths];
-      TEfficiency * Eff_bit_194_195_205;
+      TEfficiency * Effbit[Nhltpaths][2];
+      TEfficiency * Eff_bit_194_195_205[2];
       string arrayHLTpathsNames[Nhltpaths];
-      bool filled; 
+      bool filled_hlt_names; 
+      bool fillhisto[2];
   
    private:
       virtual void beginJob() ;
@@ -145,20 +146,18 @@ GenHltAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
    edm::Handle<edm::TriggerResults> hltTriggerResultHandle;
    iEvent.getByLabel(theHltInputLabel,hltTriggerResultHandle);
 
-   if(filled==false){
+   if(filled_hlt_names==false){
      const edm::TriggerNames & triggerNames = iEvent.triggerNames(*hltTriggerResultHandle);
      std::cout<<triggerNames.triggerName(32)<<std::endl; 
      //std::cout<<arrayHLTpathsNames.size()<<std::endl;
      for(int i=0;i<Nhltpaths;i++){
        arrayHLTpathsNames[i]=triggerNames.triggerName(i);
      }
-     filled=true;
+     filled_hlt_names=true;
      //std::cout<<arrayHLTpathsNames.size()<<std::endl;
    }
 
    
-
-
    int hltCount= hltTriggerResultHandle->size();
    bool allHLTResults[Nhltpaths] = { false };
    int bin;
@@ -181,56 +180,54 @@ GenHltAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
      const Candidate & p = (*genParticles)[i];
      //Higgs in status 3
      if (p.pdgId() == 25 && p.status() == 3){
-       std::cout<<"Higgs mass:"<<p.mass()<<" status:"<<p.status()<<std::endl;
-       
-       higgsEtaHist->Fill(p.p4().eta());
-       higgsPhiHist->Fill(p.p4().phi());
-       higgsPHist->Fill(sqrt(p.p4().Vect().Dot(p.p4().Vect()))); //TO CHECK
-       higgsPtHist->Fill(p.pt());
-       
-       // size_t nd = p.numberOfDaughters(); 
-       //for(size_t j = 0; j < nd; ++ j ) {
-       //const Candidate * d = p.daughter(j);
-       const Candidate * photon0 = p.daughter(0);
-       const Candidate * photon1 = p.daughter(1);
-       if (photon0->pdgId()!=22) break;
-       if (photon1->pdgId()!=22) break;
+       //std::cout<<"Higgs mass:"<<p.mass()<<" status:"<<p.status()<<std::endl;
 
-       if(photon0->pt() <= photon1->pt()){//photon1 Lead
-	 ptLeadhisto->Fill(photon1->pt());
-	 ptTrailhisto->Fill(photon0->pt());
-	 phi1phi2->Fill(photon1->phi(),photon0->phi());
-	 eta1eta2->Fill(photon1->eta(),photon0->eta());
-	 pt1pt2->Fill(photon1->pt(),photon0->pt());
-	 //Efficiency per bit
-	 for(int i=0;i<Nhltpaths;i++){
-	   Effbit[i]->Fill(allHLTResults[i],photon1->pt(),photon0->pt());
+       for(int k=0;k<2;k++){ //Loop over the different histograms
+	 higgsEtaHist->Fill(p.p4().eta());
+	 higgsPhiHist->Fill(p.p4().phi());
+	 higgsPHist->Fill(sqrt(p.p4().Vect().Dot(p.p4().Vect()))); //TO CHECK
+	 higgsPtHist->Fill(p.pt());
+	 //size_t nd = p.numberOfDaughters(); 
+	 //for(size_t j = 0; j < nd; ++ j ) {
+	 //const Candidate * d = p.daughter(j);
+	 const Candidate * photon0 = p.daughter(0);
+	 const Candidate * photon1 = p.daughter(1);
+	 if (photon0->pdgId()!=22) break; //must be photons
+	 if (photon1->pdgId()!=22) break; //must be photons
+	 
+	 bool fillhisto[0]=true;
+	 bool fillhisto[1]=allHLTResults[194]+allHLTResults[195]+allHLTResults[205];
+	 
+	 float ptLead = photon1->pt(); float ptTrail = photon0->pt();
+	 float phiLead = photon1->phi(); float phiTrail = photon0->phi();
+	 float etaLead = photon1->eta(); float etaTrail = photon0->eta();
+	 
+	 if(ptTrail>ptLead){//invert if lead is not lead
+	   std::cout<<"lead was not lead"<<std::endl;
+	   ptLead = photon0->pt(); ptTrail = photon1->pt();  
+	   phiLead = photon0->phi(); phiTrail = photon1->phi();
+	   etaLead = photon0->eta(); etaTrail = photon1->eta();
 	 }
 	 
-	 Eff_bit_194_195_205->Fill(allHLTResults[194]+allHLTResults[195]+allHLTResults[205],photon1->pt(),photon0->pt());
-
-       }else{ //photon0 Lead
-	 ptLeadhisto->Fill(photon0->pt());
-	 ptTrailhisto->Fill(photon1->pt());
-	 phi1phi2->Fill(photon0->phi(),photon1->phi());
-	 eta1eta2->Fill(photon0->eta(),photon1->eta());
-	 pt1pt2->Fill(photon0->pt(),photon1->pt());
-	 //Efficiency per bit
-	 for(int i=0;i<Nhltpaths;i++){
-	   Effbit[i]->Fill(allHLTResults[i],photon0->pt(),photon1->pt());
+	 for(int k=0;k<2;k++){ //Loop over the different histograms
+	   if(!fillhisto[k]) break; //all hitograms below will be filled up if the boolean is true.
+	   ptLeadhisto[k]->Fill(ptLead);
+	   ptTrailhisto[k]->Fill(ptTrail);
+	   phi1phi2[k]->Fill(phiLead,phiTrail);
+	   eta1eta2[k]->Fill(etaLead,etaTrail);
+	   pt1pt2[k]->Fill(ptLead,ptTrail);
+	   //Efficiency per bit
+	   for(int i=0;i<Nhltpaths;i++){
+	     Effbit[i][k]->Fill(allHLTResults[i],ptLead,ptTrail);
+	   }
+	   Eff_bit_194_195_205[k]->Fill(allHLTResults[194]+allHLTResults[195]+allHLTResults[205],ptLead,ptTrail);
+	   massHiggshisto[k]->Fill(p.mass());
+	   Particle::LorentzVector diphoton = photon0->p4()+photon1->p4();
+	   massDiphotonhisto[k]->Fill(sqrt(diphoton.Dot(diphoton)));
 	 }
-
-	 Eff_bit_194_195_205->Fill(allHLTResults[194]+allHLTResults[195]+allHLTResults[205],photon0->pt(),photon1->pt());
        }
-       
-       massHiggshisto->Fill(p.mass());
-       
-       Particle::LorentzVector diphoton = photon0->p4()+photon1->p4();
-       massDiphotonhisto->Fill(sqrt(diphoton.Dot(diphoton)));
-       
      }
    }
-   
 }
 
 
@@ -238,36 +235,59 @@ GenHltAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 void 
 GenHltAnalyzer::beginJob()
 {
-  filled=false;
+  filled_hlt_names=false;
+
   theFileOut = new TFile("genAnalyzer.root", "RECREATE");
-  ptLeadhisto = new TH1F ("ptLeadhisto","ptLeadhisto",100,0.,150.);
-  ptTrailhisto = new TH1F ("ptTrailhisto","ptTrailhisto",100,0.,150.);
-  massDiphotonhisto = new TH1F ("massDiphotonhisto","massDiphotonhisto",100,80.,150.);
-  massHiggshisto= new TH1F ("massHiggshisto","massHiggshisto",100,80.,170.);
   
-  higgsEtaHist = new TH1F ("higgsEtaHist","GEN Higgs #eta",100,-5,5);
-  higgsPhiHist = new TH1F ("higgsPhiHist","GEN Higgs #phi",180,-3.15,3.15);
-  higgsPHist = new TH1F ("higgsPHist","GEN Higgs P",500,0,1200);
-  higgsPtHist = new TH1F ("higgsPtHist","GEN Higgs P_{T}",500,0,1200);  
+  for(int k=0;k<2;k++){ //Loop over the different histograms
+
+    std::string bin = std::to_string(i);
+    sprintf(histo_name,"bin%s",bin.c_str());
+    Effbit[i][k]= new TEfficiency (histo_name,";p_T #gamma Lead;p_T #gamma Trail;#epsilon",14,bins,14,bins);
+  }
+
+  Eff_bit_194_195_205[k] = new TEfficiency ("Eff_bit_194_195_205",";p_T #gamma Lead;p_T #gamma Trail;#epsilon",14,bins,14,bins);
+}
+
+phi1phi2 = new TH2F ("phi1phi2","#phi correlation #gamma #gamma",180,-3.15,3.15,180,-3.15,3.15);
+eta1eta2 = new TH2F ("eta1eta2","#eta correlation #gamma #gamma",100,-5,5,100,-5,5);
+-11-:**--F1  GenHltAnalyzer.cc   72% L266   (C++/l Abbrev)-----------------------------------------------------------------------------------------------------
+     // ------------ method called once each job just before starting event loop  ------------                                                                      
+void
+GenHltAnalyzer::beginJob()
+{
+  filled_hlt_names=false;
+
+  theFileOut = new TFile("genAnalyzer.root", "RECREATE");
+
+  for(int k=0;k<2;k++){ //Loop over the different histograms
+    std::string histo = std::to_string(k);
+    ptLeadhisto[k] = new TH1F (("ptLeadhisto_"+histo).c_str(),("ptLeadhisto_"+histo).c_str(),100,0.,150.);
+    ptTrailhisto[k] = new TH1F (("ptTrailhisto_"+histo).c_str(),("ptTrailhisto_"+histo).c_str(),100,0.,150.);
+    massDiphotonhisto[k] = new TH1F (("massDiphotonhisto_"+histo).c_str(),("massDiphotonhisto_"+histo).c_str(),100,80.,150.);
+    massHiggshisto[k]= new TH1F (("massHiggshisto_"+histo).c_str(),("massHiggshisto_"+histo).c_str(),100,80.,170.);
+    higgsEtaHist[k] = new TH1F (("higgsEtaHist_histo"+histo).c_str(),("GEN Higgs #eta_histo"+histo).c_str(),100,-5,5);
+    higgsPhiHist[k] = new TH1F (("higgsPhiHist_histo"+histo).c_str(),("GEN Higgs #phi_histo"+histo).c_str(),180,-3.15,3.15);
+    higgsPHist[k] = new TH1F (("higgsPHist_histo"+histo).c_str(),("GEN Higgs P_histo"+histo).c_str(),500,0,1200);
+    higgsPtHist[k] = new TH1F (("higgsPtHist_histo"+histo).c_str(),("GEN Higgs P_{T}_histo"+histo).c_str(),500,0,1200);  
+    numerator[k] = new TH1F (("numerator_histo"+histo).c_str(),("numerator_histo"+histo).c_str(),Nhltpaths,-0.5,Nhltpaths-0.5);
+    denominato[k] = new TH1F (("denominator_histo"+histo).c_str(),("denominator_histo"+histo).c_str(),Nhltpaths,-0.5,Nhltpaths-0.5);
+    
+    const Double_t bins[15]={30,35,40,45,50,55,60,65,70,75,80,90,100,110,120};
+    
+    char histo_name[128];
+    for(int i=0;i<Nhltpaths;i++){
+      std::string bin = std::to_string(i);
+      sprintf(histo_name,"bin%s",(bin+"_histo"+histo).c_str());
+      Effbit[i][k]= new TEfficiency (histo_name,";p_T #gamma Lead;p_T #gamma Trail;#epsilon_histo"+histo).c_str(),14,bins,14,bins);
+    }
+    
+    Eff_bit_194_195_205[k] = new TEfficiency ("Eff_bit_194_195_205_histo"+histo).c_str(),";p_T #gamma Lead;p_T #gamma Trail;#epsilon_histo"+histo).c_str(),14,bins,14,bins);
+  }
   
   phi1phi2 = new TH2F ("phi1phi2","#phi correlation #gamma #gamma",180,-3.15,3.15,180,-3.15,3.15);
   eta1eta2 = new TH2F ("eta1eta2","#eta correlation #gamma #gamma",100,-5,5,100,-5,5);
   pt1pt2 = new TH2F ("pt1pt2","p_{T} correlation #gamma #gamma",100,20.,120.,100,20.,120.);
-
-  numerator= new TH1F ("numerator","numerator",Nhltpaths,-0.5,Nhltpaths-0.5);
-  denominator= new TH1F ("denominator","denominator",Nhltpaths,-0.5,Nhltpaths-0.5);
-  
-  const Double_t bins[15]={30,35,40,45,50,55,60,65,70,75,80,90,100,110,120};
-  
-  char histo_name[128];
-  for(int i=0;i<Nhltpaths;i++){
-    std::string bin = std::to_string(i);
-    sprintf(histo_name,"bin%s",bin.c_str());
-    Effbit[i]= new TEfficiency (histo_name,";E_T #gamma Lead;E_T #gamma Trail;#epsilon",14,bins,14,bins);
-  }
-
-  Eff_bit_194_195_205 = new TEfficiency ("Eff_bit_194_195_205",";E_T #gamma Lead;E_T #gamma Trail;#epsilon",14,bins,14,bins);
-  
 }
 
 // ------------ method called once each job just after ending the event loop  ------------
@@ -277,26 +297,25 @@ GenHltAnalyzer::endJob()
 
   theFileOut->cd();
 
-  for(int i=0;i<Nhltpaths;i++){
-    Effbit[i]->SetTitle(arrayHLTpathsNames[i].c_str());
-    Effbit[i]->Write();
+  for(int k=0;k<2;k++){ //Loop over the different histograms
+    ptLeadhisto[k]->Write();
+    ptTrailhisto[k]->Write();
+    massDiphotonhisto[k]->Write();
+    massHiggshisto[k]->Write();
+    numerator[k]->Write();
+    denominator[k]->Write();
+  
+    higgsEtaHist[k]->Write();
+    higgsPhiHist[k]->Write(); 
+    higgsPHist[k]->Write(); 
+    higgsPtHist[k]->Write();
+    for(int i=0;i<Nhltpaths;i++){
+      Effbit[i][k]->SetTitle(arrayHLTpathsNames[i].c_str());
+      Effbit[i][k]->Write();
+    }
+    Eff_bit_194_195_205[k]->Write();
   }
-
-  Eff_bit_194_195_205->Write();
   
-
-  
-  ptLeadhisto->Write();
-  ptTrailhisto->Write();
-  massDiphotonhisto->Write();
-  massHiggshisto->Write();
-  numerator->Write();
-  denominator->Write();
-  
-  higgsEtaHist->Write();
-  higgsPhiHist->Write(); 
-  higgsPHist->Write(); 
-  higgsPtHist->Write();
   phi1phi2->Write();
   eta1eta2->Write();
   pt1pt2->Write();
