@@ -245,7 +245,7 @@ LowMassValidation::analyze( const edm::Event &iEvent, const edm::EventSetup &iSe
           312 HLT_Diphoton30_18_Solid_R9Id_AND_IsoCaloId_AND_HE_R9Id_Mass55_v1 1
         */
 
-        bool rediscovery=triggerBits->accept(309);
+        //bool rediscovery=triggerBits->accept(309);
         bool EBPV=triggerBits->accept(313);
         bool ANDPV=triggerBits->accept(311);
         //bool ANDSolid=triggerBits->accept(312);
@@ -262,7 +262,7 @@ LowMassValidation::analyze( const edm::Event &iEvent, const edm::EventSetup &iSe
         if(fabs(dipho->leadingPhoton()->superCluster()->eta())<1.4442&&fabs(dipho->subLeadingPhoton()->superCluster()->eta())<1.4442){
             barrel=true;
         }
-        bool rediscovery_preselection=preselected_in_1&&haspveto;
+        //bool rediscovery_preselection=preselected_in_1&&haspveto;
         bool lowmass_preselection_EBPV=preselected_in_1&&haspveto&&barrel;
         
         double mass=dipho->mass();
@@ -324,47 +324,34 @@ LowMassValidation::analyze( const edm::Event &iEvent, const edm::EventSetup &iSe
         
         
         bool lowmass_preselection_EBPVorANDPV=kinematic_cuts&&(BarrelBarrelCase||noBarrelBarrelCase);
-
         bool lowmass_preselection_ANDPV=kinematic_cuts&&(BarrelBarrelCaseAND||noBarrelBarrelCase);
-
         //bool lowmass_preselection_ANDSo=preselected_in_1&&haspveto;
         
         assert(lowmass_preselection_EBPV||lowmass_preselection_ANDPV==lowmass_preselection_EBPVorANDPV);
         
+        bool normcuts04627=(dipho->leadingPhoton()->pt()/dipho->mass()> 0.41 && dipho->subLeadingPhoton()->pt()/dipho->mass()> 0.27);
+        bool normcuts04727=(dipho->leadingPhoton()->pt()/dipho->mass()> 0.42 && dipho->subLeadingPhoton()->pt()/dipho->mass()> 0.27);
+        bool normcuts04827=(dipho->leadingPhoton()->pt()/dipho->mass()> 0.43 && dipho->subLeadingPhoton()->pt()/dipho->mass()> 0.27);
+        bool normcuts04927=(dipho->leadingPhoton()->pt()/dipho->mass()> 0.44 && dipho->subLeadingPhoton()->pt()/dipho->mass()> 0.27);
         
-        bool normcuts04627=false;
-        if(dipho->leadingPhoton()->pt()/dipho->mass()> 0.46 && dipho->subLeadingPhoton()->pt()/dipho->mass()> 0.27)
-            normcuts04627=true;
+        cut[0] = (EBPV||ANDPV);
         
-        bool normcuts04727=false;
-        if(dipho->leadingPhoton()->pt()/dipho->mass()> 0.47 && dipho->subLeadingPhoton()->pt()/dipho->mass()> 0.27)
-            normcuts04727=true;
-        
-        bool normcuts04827=false;
-        if(dipho->leadingPhoton()->pt()/dipho->mass()> 0.48 && dipho->subLeadingPhoton()->pt()/dipho->mass()> 0.27)
-            normcuts04827=true;
-        
-        bool normcuts04927=false;
-        if(dipho->leadingPhoton()->pt()/dipho->mass()> 0.49 && dipho->subLeadingPhoton()->pt()/dipho->mass()> 0.27)
-            normcuts04927=true;
-            
-        /*
-        cut[0] = EBPV||ANDPV; //all minitree level plots for reference, no cuts
-        
-        cut[1] = EBPV||ANDPV;
+        cut[1] = (EBPV||ANDPV)&&lowmass_preselection_EBPVorANDPV;
         cut[2] = cut[1]&&normcuts04627;
         
-        cut[3] = EBPV||ANDPV;
+        cut[3] = (EBPV||ANDPV)&&lowmass_preselection_EBPVorANDPV;
         cut[4] = cut[3]&&normcuts04727;
         
-        cut[5] = EBPV||ANDPV;
+        cut[5] = (EBPV||ANDPV)&&lowmass_preselection_EBPVorANDPV;
         cut[6] = cut[5]&&normcuts04827;
         
-        cut[7] = EBPV||ANDPV;
+        cut[7] = (EBPV||ANDPV)&&lowmass_preselection_EBPVorANDPV;
         cut[8] = cut[7]&&normcuts04927;
-        */
+        
 
+        /*
         cut[0] = EBPV||ANDPV||rediscovery;
+        
         
         cut[1] = rediscovery;
         cut[2] = cut[1]&&rediscovery_preselection;
@@ -377,9 +364,8 @@ LowMassValidation::analyze( const edm::Event &iEvent, const edm::EventSetup &iSe
         
         cut[7] = EBPV||ANDPV;
         cut[8] = cut[7]&&lowmass_preselection_EBPVorANDPV;
-        
-        //std::cout<<(EBPV&&lowmass_preselection_EBPV)<<std::endl;
-        
+        */
+                
         for( cut_index = 0; cut_index < 9  ; cut_index++ ) { //Loop over the different histograms
             if( cut[cut_index] ) { //all hitograms below will be filled up if the boolean is true.
                 cutflow->Fill( cut_index );
@@ -414,6 +400,7 @@ LowMassValidation::analyze( const edm::Event &iEvent, const edm::EventSetup &iSe
                 */
             }
         }
+    }
     }
 }
 
