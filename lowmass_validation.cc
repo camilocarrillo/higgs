@@ -107,6 +107,7 @@ private:
     bool cut[9  ];
     int cut_index;
 
+    TH1F *ndipho;
     TH1F *cutflow;
     TFile *theFileOut;
     TString name;
@@ -120,7 +121,12 @@ private:
     bool first;
 
     stringstream label;
-    
+
+    int bitred=-1;
+    int bitEBPV=-1;
+    int bitANDPV=-1;
+ 
+   
 };
 
 // ******************************************************************************************
@@ -145,7 +151,7 @@ LowMassValidation::LowMassValidation( const edm::ParameterSet &iConfig ):
     diphotonToken_2( consumes<View<flashgg::DiPhotonCandidate> >( iConfig.getParameter<InputTag> ( "DiPhotonTag2" ) ) ),
     triggerBits_( consumes<edm::TriggerResults>( iConfig.getParameter<edm::InputTag>( "bits" ) ) )
 {
-
+    first = true;
 }
 
 
@@ -185,34 +191,65 @@ LowMassValidation::analyze( const edm::Event &iEvent, const edm::EventSetup &iSe
 
     const edm::TriggerNames &triggerNames = iEvent.triggerNames( *triggerBits );
 
-    //vector<std::string> const& names = triggerNames.triggerNames();
-    if(first==true){
+    if(first==true)
+    {
+        std::string REDIname ("_Diphoton30_18_R9Id_OR_IsoCaloId_AND_HE_R9Id_Mass95_v");                     
+        std::string EBPVname ("_Diphoton30EB_18EB_R9Id_OR_IsoCaloId_AND_HE_R9Id_DoublePixelVeto_Mass55_v"); 
+        std::string ANDPVname ("_Diphoton30PV_18PV_R9Id_AND_IsoCaloId_AND_HE_R9Id_DoublePixelVeto_Mass55_v");
+        //std::string ANDSoname ("_Diphoton30_18_Solid_R9Id_AND_IsoCaloId_AND_HE_R9Id_Mass55_v");              
+        
         for (unsigned index = 0; index < triggerNames.size(); ++index) {
             cout << index << " " << triggerNames.triggerName(index) << " "<< triggerBits->accept(index)<<endl;
+            if(triggerNames.triggerName(index).find(REDIname.c_str())!=std::string::npos) bitred=index;
+            if(triggerNames.triggerName(index).find(EBPVname.c_str())!=std::string::npos) bitEBPV=index;
+            if(triggerNames.triggerName(index).find(ANDPVname.c_str())!=std::string::npos) bitANDPV=index;
+            
             label.str("");
             label<<"bit"<<index;
             cout<<label.str()<<endl;
         }
 
-        std::string REDIname ("_Diphoton30_18_R9Id_OR_IsoCaloId_AND_HE_R9Id_Mass95_v1");                     
-        std::string EBPVname ("_Diphoton30EB_18EB_R9Id_OR_IsoCaloId_AND_HE_R9Id_DoublePixelVeto_Mass55_v1"); 
-        std::string ANDPVname ("_Diphoton30PV_18PV_R9Id_AND_IsoCaloId_AND_HE_R9Id_DoublePixelVeto_Mass55_v1");
-        std::string ANDSoname ("_Diphoton30_18_Solid_R9Id_AND_IsoCaloId_AND_HE_R9Id_Mass55_v1");              
-
-        std::cout<<REDIname<<" "<<triggerNames.triggerName(309)<<std::endl;
-        std::cout<<EBPVname<<" "<<triggerNames.triggerName(313)<<std::endl;
-        std::cout<<ANDPVname<<" "<<triggerNames.triggerName(311)<<std::endl;
-        std::cout<<ANDSoname<<" "<<triggerNames.triggerName(312)<<std::endl;
+        std::cout<<bitred<<REDIname<<" "<<triggerNames.triggerName(bitred)<<std::endl;
+        std::cout<<bitEBPV<<EBPVname<<" "<<triggerNames.triggerName(bitEBPV)<<std::endl;
+        std::cout<<bitANDPV<<ANDPVname<<" "<<triggerNames.triggerName(bitANDPV)<<std::endl;
+        //std::cout<<ANDSoname<<" "<<triggerNames.triggerName(312)<<std::endl;
+        
+        //assertions fail because the v is different!
+        //assert(REDIname.compare(triggerNames.triggerName(bitred))==0);
+        //assert(EBPVname.compare(triggerNames.triggerName(bitEBPV))==0);
+        //assert(ANDPVname.compare(triggerNames.triggerName(bitANDPV))==0);
+        //assert(ANDSoname.compare(triggerNames.triggerName(312))==0);
 
         first=false;
     }
 
+    
     //std::cout << "sizes:" << diphotons->size() << "," << diphotons1->size() << "," << diphotons2->size() << std::endl;
 
-    if(diphotons->size()==1){
+
+    float max = -100;
+    bool selection=false;
+    size_t selected_idipho=0;
+
+
+
+    ndipho->Fill( diphotons->size() );
+
     for( size_t idipho = 0; idipho < diphotons->size(); idipho++ ) {
         Ptr<flashgg::DiPhotonCandidate> dipho = diphotons->ptrAt( idipho );
-
+        if (fabs(dipho->leadingPhoton()->pt())+fabs(dipho->subLeadingPhoton()->pt())>max){
+            selected_idipho = idipho;
+            max = fabs(dipho->leadingPhoton()->pt())+fabs(dipho->subLeadingPhoton()->pt());
+            selection=true;
+        }
+    }
+    
+    if(selection)
+    {
+    for( size_t idipho = 0; idipho < diphotons->size(); idipho++ ){
+        if (idipho!=selected_idipho) continue;
+        Ptr<flashgg::DiPhotonCandidate> dipho = diphotons->ptrAt(idipho);
+        
         //std::cout<<"dR "<< deltaR(dipho->leadingPhoton()->p4(), dipho->subLeadingPhoton()->p4() )<<std::endl;
        
         //checking if preselected in 1
@@ -238,17 +275,11 @@ LowMassValidation::analyze( const edm::Event &iEvent, const edm::EventSetup &iSe
         }
 
         assert(preselected_in_2==preselected_in_1);
-        /*        
-          309 HLT_Diphoton30_18_R9Id_OR_IsoCaloId_AND_HE_R9Id_Mass95_v1 1
-          313 HLT_Diphoton30EB_18EB_R9Id_OR_IsoCaloId_AND_HE_R9Id_DoublePixelVeto_Mass55_v1 0
-          311 HLT_Diphoton30PV_18PV_R9Id_AND_IsoCaloId_AND_HE_R9Id_DoublePixelVeto_Mass55_v1 1
-          312 HLT_Diphoton30_18_Solid_R9Id_AND_IsoCaloId_AND_HE_R9Id_Mass55_v1 1
-        */
-
-        //bool rediscovery=triggerBits->accept(309);
-        bool EBPV=triggerBits->accept(313);
-        bool ANDPV=triggerBits->accept(311);
-        //bool ANDSolid=triggerBits->accept(312);
+        
+        bool rediscovery=triggerBits->accept(bitred);
+        bool EBPV=triggerBits->accept(bitEBPV);
+        bool ANDPV=triggerBits->accept(bitANDPV);
+        //bool ANDSolid=triggerBits->accept(bitANDSo);
         
         //bool haseveto = dipho->leadingPhoton()->passElectronVeto()&&dipho->subLeadingPhoton()->passElectronVeto();
         bool haspveto = !dipho->leadingPhoton()->hasPixelSeed()&&!dipho->subLeadingPhoton()->hasPixelSeed();
@@ -256,17 +287,14 @@ LowMassValidation::analyze( const edm::Event &iEvent, const edm::EventSetup &iSe
         //bool masscut = false;
         //if(dipho->mass()>60) masscut=true;
         
-
-
         bool barrel=false;
         if(fabs(dipho->leadingPhoton()->superCluster()->eta())<1.4442&&fabs(dipho->subLeadingPhoton()->superCluster()->eta())<1.4442){
             barrel=true;
         }
-        //bool rediscovery_preselection=preselected_in_1&&haspveto;
-        bool lowmass_preselection_EBPV=preselected_in_1&&haspveto&&barrel;
+        bool rediscovery_preselection=preselected_in_1&&haspveto;
         
         double mass=dipho->mass();
-        bool kinematic_cuts=dipho->leadingPhoton()->pt() > 18 && dipho->subLeadingPhoton()->pt() > 18  && mass > 55
+        bool kinematic_cuts=dipho->leadingPhoton()->pt() > 30 && dipho->subLeadingPhoton()->pt() > 20  && mass > 55
             && abs(dipho->leadingPhoton()->superCluster()->eta())<2.5 && abs(dipho->subLeadingPhoton()->superCluster()->eta())<2.5 
             && (dipho->leadingPhoton()->full5x5_r9()>0.8||dipho->leadingPhoton()->egChargedHadronIso()<20||dipho->leadingPhoton()->egChargedHadronIso()/dipho->leadingPhoton()->pt()<0.3)
             && (dipho->subLeadingPhoton()->full5x5_r9()>0.8||dipho->subLeadingPhoton()->egChargedHadronIso()<20||dipho->subLeadingPhoton()->egChargedHadronIso()/dipho->subLeadingPhoton()->pt()<0.3)
@@ -286,8 +314,8 @@ LowMassValidation::analyze( const edm::Event &iEvent, const edm::EventSetup &iSe
                                                         && dipho->subLeadingPhoton()->trkSumPtHollowConeDR03()<6.0) )  ));
 
         bool BarrelBarrelCaseAND = (    fabs(dipho->leadingPhoton()->superCluster()->eta())<1.4442 && fabs(dipho->subLeadingPhoton()->superCluster()->eta())<1.4442 )
-                                            && (    (   dipho->leadingPhoton()->full5x5_r9()>0.85))
-                                            && (    (   dipho->subLeadingPhoton()->full5x5_r9()>0.85)  );
+                                           && (    (   dipho->leadingPhoton()->full5x5_r9()>0.85))
+                                           && (    (   dipho->subLeadingPhoton()->full5x5_r9()>0.85)  );
                                             
         
         bool noBarrelBarrelCase = ((    (    fabs(dipho->leadingPhoton()->superCluster()->eta())<1.4442&& fabs(dipho->subLeadingPhoton()->superCluster()->eta())>1.566 )
@@ -325,45 +353,48 @@ LowMassValidation::analyze( const edm::Event &iEvent, const edm::EventSetup &iSe
         
         bool lowmass_preselection_EBPVorANDPV=kinematic_cuts&&(BarrelBarrelCase||noBarrelBarrelCase);
         bool lowmass_preselection_ANDPV=kinematic_cuts&&(BarrelBarrelCaseAND||noBarrelBarrelCase);
+        bool lowmass_preselection_EBPV=kinematic_cuts&&BarrelBarrelCase&&haspveto&&barrel;
         //bool lowmass_preselection_ANDSo=preselected_in_1&&haspveto;
+        //assert(lowmass_preselection_EBPV||lowmass_preselection_ANDPV==lowmass_preselection_EBPVorANDPV);       
+
+        /*
+        double ptTrailTh=0.32;
+        double ptLeadTh=0.49;
+        bool normcut2=(dipho->leadingPhoton()->pt()/dipho->mass()> ptLeadTh-0.06 && dipho->subLeadingPhoton()->pt()/dipho->mass()> ptTrailTh);
+        bool normcut4=(dipho->leadingPhoton()->pt()/dipho->mass()> ptLeadTh-0.04 && dipho->subLeadingPhoton()->pt()/dipho->mass()> ptTrailTh);
+        bool normcut6=(dipho->leadingPhoton()->pt()/dipho->mass()> ptLeadTh-0.02 && dipho->subLeadingPhoton()->pt()/dipho->mass()> ptTrailTh);
+        bool normcut8=(dipho->leadingPhoton()->pt()/dipho->mass()> ptLeadTh-0.00 && dipho->subLeadingPhoton()->pt()/dipho->mass()> ptTrailTh);
+        */
         
-        assert(lowmass_preselection_EBPV||lowmass_preselection_ANDPV==lowmass_preselection_EBPVorANDPV);
+        /* For Trigger Studies */
+        cut[0] = (EBPV||ANDPV||rediscovery);
         
-        bool normcuts04627=(dipho->leadingPhoton()->pt()/dipho->mass()> 0.41 && dipho->subLeadingPhoton()->pt()/dipho->mass()> 0.27);
-        bool normcuts04727=(dipho->leadingPhoton()->pt()/dipho->mass()> 0.42 && dipho->subLeadingPhoton()->pt()/dipho->mass()> 0.27);
-        bool normcuts04827=(dipho->leadingPhoton()->pt()/dipho->mass()> 0.43 && dipho->subLeadingPhoton()->pt()/dipho->mass()> 0.27);
-        bool normcuts04927=(dipho->leadingPhoton()->pt()/dipho->mass()> 0.44 && dipho->subLeadingPhoton()->pt()/dipho->mass()> 0.27);
+        cut[1] = (EBPV);
+        cut[2] = cut[1]&&lowmass_preselection_EBPV;
         
+        cut[3] = (ANDPV);
+        cut[4] = cut[3]&&lowmass_preselection_ANDPV;
+        
+        cut[5] = (EBPV||ANDPV);
+        cut[6] = cut[5]&&lowmass_preselection_EBPVorANDPV;
+        
+        cut[7] = rediscovery;
+        cut[8] = cut[7]&&rediscovery_preselection;
+
+        /* For pt cuts studies 
         cut[0] = (EBPV||ANDPV);
         
         cut[1] = (EBPV||ANDPV)&&lowmass_preselection_EBPVorANDPV;
-        cut[2] = cut[1]&&normcuts04627;
+        cut[2] = cut[1]&&normcut2;
         
         cut[3] = (EBPV||ANDPV)&&lowmass_preselection_EBPVorANDPV;
-        cut[4] = cut[3]&&normcuts04727;
+        cut[4] = cut[3]&&normcut4;
         
         cut[5] = (EBPV||ANDPV)&&lowmass_preselection_EBPVorANDPV;
-        cut[6] = cut[5]&&normcuts04827;
+        cut[6] = cut[5]&&normcut6;
         
         cut[7] = (EBPV||ANDPV)&&lowmass_preselection_EBPVorANDPV;
-        cut[8] = cut[7]&&normcuts04927;
-        
-
-        /*
-        cut[0] = EBPV||ANDPV||rediscovery;
-        
-        
-        cut[1] = rediscovery;
-        cut[2] = cut[1]&&rediscovery_preselection;
-        
-        cut[3] = EBPV;
-        cut[4] = cut[3]&&lowmass_preselection_EBPV;
-        
-        cut[5] = ANDPV;
-        cut[6] = cut[5]&&lowmass_preselection_ANDPV;
-        
-        cut[7] = EBPV||ANDPV;
-        cut[8] = cut[7]&&lowmass_preselection_EBPVorANDPV;
+        cut[8] = cut[7]&&normcut8;
         */
                 
         for( cut_index = 0; cut_index < 9  ; cut_index++ ) { //Loop over the different histograms
@@ -409,6 +440,8 @@ void
 LowMassValidation::beginJob()
 {
     theFileOut = new TFile( "output_hlt.root", "RECREATE" );
+    
+    ndipho = new TH1F( "ndipho", "ndipho", 9  , -0.5, 8.5 );
 
     cutflow = new TH1F( "cutflow", "cutflow", 9  , -0.5, 8.5 );
 
@@ -471,14 +504,14 @@ LowMassValidation::beginJob()
         name = Form( "diphoton_SubLeadpfiso02_%d", cut_index );
         diphoton_SubLeadpfiso02[cut_index]       = new TH1F( name, name, 100, 0., 0.01 );
     }
-
-    first=true;
+    first = true;
 }
 
 void
 LowMassValidation::endJob()
 {
     theFileOut->cd();
+    ndipho->Write();
     cutflow->Write();
     for( cut_index = 0; cut_index < 9  ; cut_index++ ) { //Loop over the different histograms
         cout << "index=" << cut_index << endl;
